@@ -216,3 +216,8 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# NileFlowExplorer: flow data are distributed through Zenodo, not this repository
+*.h5
+*.hdf5
+.DS_Store

@@ -3,25 +3,29 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Nile Basin Streamflow Explorer</title>
+<title>NileFlowExplorer | Nile Basin Streamflow Explorer</title>
+<meta name="description" content="Interactive explorer for simulated naturalized streamflow across the Nile Basin: HEC-HMS simulations driven by CHIRPS/CHIRTS (1983–2014) and downscaled, bias-corrected CMIP6 projections under SSP1-2.6, SSP2-4.5 and SSP5-8.5." />
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <style>
   :root {
     --bg:#fff; --panel:#f7f8f7; --ink:#1c1c1a; --muted:#6b6b66; --border:#d9dcd7;
+    --hist:#3a3a3a; --histb:#bdbdbd;
     --ssp126:#2166ac; --ssp126b:#92c5de; --ssp245:#3b8b1f; --ssp245b:#b8e186;
     --ssp585:#c0392b; --ssp585b:#f4a582;
   }
   *{box-sizing:border-box}
   body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Arial,sans-serif;color:var(--ink);background:var(--bg);font-size:14px;line-height:1.5}
+  a{color:#1f5f9e}
   header{padding:14px 18px;border-bottom:1px solid var(--border);background:var(--panel)}
-  header h1{margin:0 0 4px;font-size:18px;font-weight:600}
-  header p{margin:0;color:var(--muted);font-size:13px}
-  header ol.steps{margin:8px 0 0;padding-left:22px;color:var(--ink);font-size:13px}
+  header h1{margin:0;font-size:19px;font-weight:650;letter-spacing:.1px}
+  header .sub{margin:2px 0 0;color:var(--muted);font-size:13px}
+  header ol.steps{margin:10px 0 0;padding-left:22px;color:var(--ink);font-size:13px}
   header ol.steps li{margin:3px 0}
   header .note{margin:8px 0 0;color:var(--muted);font-size:12px}
   .loaders{display:flex;flex-wrap:wrap;gap:16px;padding:12px 18px;border-bottom:1px solid var(--border);align-items:flex-end}
   .loader label{display:block;font-size:12px;color:var(--muted);margin-bottom:3px}
-  .loader input[type=file]{font-size:12px;max-width:230px}
+  .loader input[type=file]{font-size:12px;max-width:260px}
+  .loader select{max-width:260px}
   #status{padding:8px 18px;font-size:13px;color:var(--muted);min-height:20px}
   #status.err{color:#b00020}#status.ok{color:#1a7a3a}
   main{display:grid;grid-template-columns:minmax(280px,40%) 1fr;gap:0;align-items:stretch;min-height:520px}
@@ -47,36 +51,78 @@
   .legend span{display:inline-flex;align-items:center;gap:5px}
   .band{width:16px;height:10px;display:inline-block;border-radius:2px;opacity:.55}
   .ctrl-label{font-size:12px;color:var(--muted)}
+  .n-tag{font-variant-numeric:tabular-nums;color:var(--muted);font-size:12px}
+  #ensembleInfo{font-size:12px;color:var(--ink);background:var(--panel);border:1px solid var(--border);border-radius:6px;padding:6px 10px}
+  #ensembleInfo:empty{display:none}
+  #ensembleInfo b{font-weight:600}
+  footer{border-top:1px solid var(--border);background:var(--panel);padding:10px 18px;font-size:12px;color:var(--muted);display:flex;flex-wrap:wrap;gap:6px 18px}
+  footer button.linklike{border:none;background:none;padding:0;color:#1f5f9e;text-decoration:underline;font-size:12px;cursor:pointer}
+
+  /* Disclaimer dialog */
+  dialog#disclaimer{max-width:640px;width:calc(100% - 32px);border:1px solid var(--border);border-radius:10px;padding:0;color:var(--ink);box-shadow:0 18px 50px rgba(0,0,0,.25)}
+  dialog#disclaimer::backdrop{background:rgba(20,24,20,.55)}
+  #disclaimer .dlg-head{padding:16px 20px 6px}
+  #disclaimer h2{margin:0;font-size:17px}
+  #disclaimer .dlg-body{padding:4px 20px 6px;max-height:min(60vh,520px);overflow:auto;font-size:13px}
+  #disclaimer .dlg-body ul{padding-left:18px;margin:8px 0}
+  #disclaimer .dlg-body li{margin:6px 0}
+  #disclaimer .dlg-foot{padding:12px 20px 16px;display:flex;justify-content:flex-end;gap:10px;align-items:center;border-top:1px solid var(--border);background:var(--panel)}
+  #disclaimer .dlg-foot .hint{margin-right:auto}
+  #ackBtn{background:#2f6b2f;color:#fff;border-color:#2f6b2f;font-weight:600;padding:8px 18px}
+  #ackBtn:hover{background:#245524}
 </style>
 </head>
 <body>
+
+<!-- ================= Disclaimer (shown every time the site is opened) ================= -->
+<dialog id="disclaimer" aria-labelledby="dlgTitle" aria-describedby="dlgBody">
+  <div class="dlg-head"><h2 id="dlgTitle">Disclaimer and terms of use</h2></div>
+  <div class="dlg-body" id="dlgBody">
+    <p>NileFlowExplorer and the data it displays are provided for research and information purposes only. Please read the following before continuing.</p>
+    <ul>
+      <li><strong>Simulations, not observations.</strong> The streamflow series are naturalized flows simulated with a hydrological model (HEC-HMS). They are not measured flows, and they do not represent the regulated flows that actually occur at any location.</li>
+      <li><strong>Scenarios, not forecasts.</strong> Future flows are driven by downscaled and bias-corrected CMIP6 climate projections. They describe plausible outcomes under particular emission pathways, not predictions, and they carry substantial uncertainty from the climate models, the scenarios, the downscaling and the hydrological model.</li>
+      <li><strong>No warranty.</strong> The website and data are provided &ldquo;as is&rdquo;, without warranty of any kind, express or implied, including warranties of accuracy, completeness, timeliness, merchantability or fitness for a particular purpose.</li>
+      <li><strong>No liability.</strong> The authors, their institutions and funders accept no liability for any loss or damage of any kind, whether direct, indirect, incidental or consequential, arising from the use of, or reliance on, this website or the data. You use them at your own risk and are solely responsible for how you interpret and apply them.</li>
+      <li><strong>Not a basis for decisions on its own.</strong> The data are not a substitute for site-specific analysis, professional engineering judgement, or official information from national agencies and basin organizations, and should not be the sole basis for design, operational, investment, legal or policy decisions.</li>
+      <li><strong>Boundaries and names.</strong> The boundaries, names and designations on the maps do not imply any opinion on the legal status of any territory or the delimitation of any boundary. Nothing on this site represents a position on the allocation or use of the waters of the Nile.</li>
+      <li><strong>Third-party content.</strong> Basemaps and software libraries are supplied by third parties under their own terms.</li>
+    </ul>
+    <p>By selecting &ldquo;I understand&rdquo;, you confirm that you have read and accept these terms.</p>
+  </div>
+  <div class="dlg-foot">
+    <span class="hint">This notice is shown each time the site is opened.</span>
+    <button id="ackBtn" type="button" autofocus>I understand</button>
+  </div>
+</dialog>
+
 <header>
-  <h1>Nile Basin Streamflow Explorer</h1>
+  <h1>NileFlowExplorer</h1>
+  <p class="sub">Simulated naturalized streamflow for the Nile Basin: historical (CHIRPS/CHIRTS, 1983–2014) and CMIP6 projections under SSP1-2.6, SSP2-4.5 and SSP5-8.5.</p>
   <ol class="steps">
-    <!-- TODO: replace the href "XXX" below with the actual download URL for the .h5 file -->
-    <li><strong>Download</strong> the HDF5 naturalized-flow file to your computer: <a id="dlLink" href="https://doi.org/10.5281/zenodo.23491530" target="_blank" rel="noopener noreferrer">naturalized flow file (.h5)</a>.</li>
-    <li><strong>Select</strong> that file with the “HDF5 flow file (.h5)” button below.</li>
-    <li><strong>Explore:</strong> click any element on the map — a sub-basin or a reach — or pick one from the dropdown, to view its streamflow.</li>
+    <li><strong>Download</strong> the HDF5 naturalized-flow file to your computer: <a id="dlLink" href="https://doi.org/10.5281/zenodo.23491530" target="_blank" rel="noopener noreferrer">naturalized flow file (.h5) on Zenodo</a>.</li>
+    <li><strong>Select</strong> that file with the &ldquo;HDF5 flow file (.h5)&rdquo; button below.</li>
+    <li><strong>Explore:</strong> click any element on the map (a sub-basin or a reach), or pick one from the list, to view its streamflow.</li>
   </ol>
-  <p class="note">The sub-basin and reach maps load automatically from this site. All computation runs locally in a background thread — your flow data never leaves your machine.</p>
+  <p class="note">The sub-basin and reach maps load automatically from this site. All computation runs locally in your browser; your flow file is never uploaded.</p>
 </header>
 
 <div class="loaders">
   <div class="loader">
-    <label>HDF5 flow file (.h5) — from your computer</label>
+    <label for="h5file">HDF5 flow file (.h5), from your computer</label>
     <input type="file" id="h5file" accept=".h5,.hdf5" />
   </div>
   <div class="loader">
-    <label>Or pick an element</label>
-    <select id="elemSelect" disabled><option>— load an .h5 first —</option></select>
+    <label for="elemSelect">Or pick an element</label>
+    <select id="elemSelect" disabled><option>Load an .h5 file first</option></select>
   </div>
 </div>
 
-<div id="status">Loading map layers…</div>
+<div id="status" role="status" aria-live="polite">Loading map layers…</div>
 
 <main>
   <div id="mapWrap">
-    <div id="map"></div>
+    <div id="map" aria-label="Map of Nile Basin sub-basins and reaches"></div>
   </div>
   <div id="panel">
     <div id="elemTitle">No element selected</div>
@@ -91,27 +137,46 @@
       <span class="ctrl-label" id="windowCtrl">Window (years):
         <input type="number" id="windowInput" min="1" max="60" step="1" value="15" />
       </span>
+      <label class="ctrl-label" for="unitSelect">Units:
+        <select id="unitSelect">
+          <option value="mcmd" selected>million m³ day⁻¹</option>
+          <option value="cms">m³ s⁻¹</option>
+          <option value="bcmy">km³ yr⁻¹ (BCM/yr)</option>
+        </select>
+      </label>
     </div>
 
     <div class="row">
-      <label class="chk"><input type="checkbox" class="sspToggle" data-ssp="ssp126" checked><span class="swatch" style="background:var(--ssp126)"></span>SSP1-2.6</label>
-      <label class="chk"><input type="checkbox" class="sspToggle" data-ssp="ssp245" checked><span class="swatch" style="background:var(--ssp245)"></span>SSP2-4.5</label>
-      <label class="chk"><input type="checkbox" class="sspToggle" data-ssp="ssp585" checked><span class="swatch" style="background:var(--ssp585)"></span>SSP5-8.5</label>
+      <label class="chk"><input type="checkbox" class="grpToggle" data-grp="hist" checked><span class="swatch" style="background:var(--hist)"></span>Historical <span class="n-tag" data-n="hist"></span></label>
+      <label class="chk"><input type="checkbox" class="grpToggle" data-grp="ssp126" checked><span class="swatch" style="background:var(--ssp126)"></span>SSP1-2.6 <span class="n-tag" data-n="ssp126"></span></label>
+      <label class="chk"><input type="checkbox" class="grpToggle" data-grp="ssp245" checked><span class="swatch" style="background:var(--ssp245)"></span>SSP2-4.5 <span class="n-tag" data-n="ssp245"></span></label>
+      <label class="chk"><input type="checkbox" class="grpToggle" data-grp="ssp585" checked><span class="swatch" style="background:var(--ssp585)"></span>SSP5-8.5 <span class="n-tag" data-n="ssp585"></span></label>
+    </div>
+    <div class="row">
       <label class="chk"><input type="checkbox" id="showIndiv"> individual projections</label>
       <label class="chk"><input type="checkbox" id="showBand" checked> percentile band</label>
       <button id="exportBtn" disabled>Export CSV</button>
     </div>
 
     <div class="legend">
-      <span><span class="band" style="background:var(--ssp585b)"></span>10th–90th percentile</span>
+      <span><span class="band" style="background:var(--ssp585b)"></span>10th–90th percentile across models</span>
       <span><span class="swatch" style="background:#111;height:3px"></span>ensemble median (bold)</span>
       <span class="hint" id="viewHint">15-year centred moving average</span>
     </div>
 
+    <div id="ensembleInfo" aria-live="polite"></div>
+
     <div id="chartWrap"><canvas id="chart" role="img" aria-label="Streamflow time series"></canvas></div>
-    <div class="hint" id="foot">Units: million m³ day⁻¹.</div>
+    <div class="hint" id="foot">Units: million m³ day⁻¹. n = number of climate models (GCMs) in each ensemble.</div>
   </div>
 </main>
+
+<footer>
+  <span>NileFlowExplorer · WRH Group</span>
+  <a href="https://doi.org/10.5281/zenodo.23491530" target="_blank" rel="noopener noreferrer">Data (Zenodo)</a>
+  <a href="https://github.com/WRHGroup/NileFlowExplorer" target="_blank" rel="noopener noreferrer">Source code &amp; how to cite</a>
+  <button type="button" class="linklike" id="showDisclaimer">Disclaimer</button>
+</footer>
 
 <script src="https://cdn.jsdelivr.net/npm/shpjs@6.1.0/dist/shp.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
@@ -120,24 +185,22 @@
 <script id="worker" type="javascript/worker">
 // ===== Web Worker: all HDF5 work happens here, off the main thread =====
 let hdf5 = null, h5 = null, keys = [];
-
-function norm(s){ return String(s).trim().toLowerCase().replace(/[_\s]+/g,"-"); }
+const H5WASM_URL = "https://cdn.jsdelivr.net/npm/h5wasm@0.7.8/dist/esm/hdf5_hl.js";
 
 async function ensureEngine(){
   if (hdf5) return;
-  hdf5 = await import("https://esm.sh/h5wasm@0.7.8");
+  hdf5 = await import(H5WASM_URL);
   await hdf5.ready;
 }
 
 async function openFile(file){
-  const t0 = performance.now();
   await ensureEngine();
-  const tReady = performance.now();
   if (h5){ try{ h5.close(); }catch(e){} }
   try{ hdf5.FS.unlink("data.h5"); }catch(e){}
+  try{ hdf5.FS.unmount("/work"); }catch(e){}
 
   let mode = "in-memory";
-  // Prefer lazy WORKERFS mount (no full copy). Works well inside a worker.
+  // Prefer a lazy WORKERFS mount (reads only what is needed, no full copy).
   try{
     try{ hdf5.FS.mkdir("/work"); }catch(e){}
     hdf5.FS.mount(hdf5.FS.filesystems.WORKERFS, { files:[file] }, "/work");
@@ -148,31 +211,47 @@ async function openFile(file){
     hdf5.FS.writeFile("data.h5", buf);
     h5 = new hdf5.File("data.h5","r");
   }
-  const tOpen = performance.now();
   keys = h5.keys();
-  const tKeys = performance.now();
-  postMessage({ type:"opened", keys, mode,
-    timing:{ ready:tReady-t0, open:tOpen-tReady, keys:tKeys-tOpen } });
+  postMessage({ type:"opened", keys, mode });
 }
 
-// Read one pandas DataFrame group and return raw daily columns + years.
-// Only reads the datasets for THIS element (fast, lazy).
+// pandas < 3 stores a DatetimeIndex in nanoseconds ("datetime64"); pandas 3 may use
+// other units ("datetime64[us]", "[ms]", "[s]"). Read the unit from the "kind"
+// attribute and fall back to the magnitude of the first value.
+function timeScaleToMs(ds, values){
+  const SCALE = { ns:1e-6, us:1e-3, ms:1, s:1000 };
+  let kind = "";
+  try{
+    const a = ds.attrs && ds.attrs["kind"];
+    kind = String(a && a.value !== undefined ? a.value : (a || ""));
+  }catch(e){}
+  const m = /datetime64\[(ns|us|ms|s)\]/.exec(kind);
+  if (m) return SCALE[m[1]];
+  if (/datetime64/.test(kind)) return SCALE.ns;
+  const v = values.length ? Math.abs(Number(values[0])) : 0;
+  return v > 1e16 ? SCALE.ns : v > 1e13 ? SCALE.us : v > 1e10 ? SCALE.ms : SCALE.s;
+}
+
+// Read one pandas DataFrame group (fixed format) and return its daily columns.
+// Only the datasets for THIS element are read.
 function readGroup(key){
   const childNames = h5.get(key).keys();
-
-  const axis1 = h5.get(key+"/axis1").value;   // int64 ns
+  const axisDs = h5.get(key+"/axis1");          // int64 time stamps since 1970
+  const axis1 = axisDs.value;
   const nrows = axis1.length;
+  const toMs = timeScaleToMs(axisDs, axis1);
+  const dayMs = new Float64Array(nrows);
   const rowYear = new Int16Array(nrows);
   for (let r=0;r<nrows;r++){
-    const ns = typeof axis1[r]==="bigint"?axis1[r]:BigInt(axis1[r]);
-    rowYear[r] = new Date(Number(ns/1000000n)).getUTCFullYear();
+    dayMs[r] = Math.round(Number(axis1[r]) * toMs);
+    rowYear[r] = new Date(dayMs[r]).getUTCFullYear();
   }
 
   const blockIdx = [];
   for (const nm of childNames){ const m=/^block(\d+)_values$/.exec(nm); if(m) blockIdx.push(+m[1]); }
   blockIdx.sort((a,b)=>a-b);
 
-  const cols = [], colData = [];   // colData[c] = Float64Array of length nrows
+  const cols = [], colData = [];
   for (const bi of blockIdx){
     const items = h5.get(`${key}/block${bi}_items`).value;
     const vds   = h5.get(`${key}/block${bi}_values`);
@@ -189,29 +268,21 @@ function readGroup(key){
       cols.push(String(items[c])); colData.push(arr);
     }
   }
-  return { cols, colData, rowYear, nrows };
+  return { cols, colData, rowYear, dayMs, nrows };
 }
 
 function loadElement(key){
   const t0 = performance.now();
-  const { cols, colData, rowYear, nrows } = readGroup(key);
+  const { cols, colData, rowYear, dayMs, nrows } = readGroup(key);
 
-  // Daily datetime (ms) rebuilt from axis1 for the daily view / CSV
-  const axis1 = h5.get(key+"/axis1").value;
-  const dayMs = new Float64Array(nrows);
-  for (let r=0;r<nrows;r++){
-    const ns = typeof axis1[r]==="bigint"?axis1[r]:BigInt(axis1[r]);
-    dayMs[r] = Number(ns/1000000n);
-  }
-
-  // Annual means per column
+  // Calendar-year means per column (years with no valid data -> NaN)
   let minYear=Infinity,maxYear=-Infinity;
   for (let r=0;r<nrows;r++){ const y=rowYear[r]; if(y<minYear)minYear=y; if(y>maxYear)maxYear=y; }
   const nY = maxYear-minYear+1;
   const years = new Int16Array(nY);
   for (let i=0;i<nY;i++) years[i]=minYear+i;
 
-  const annual = [];   // annual[c] = Float64Array(nY)
+  const annual = [];
   for (let c=0;c<cols.length;c++){
     const src=colData[c], sums=new Float64Array(nY), cnts=new Float64Array(nY);
     for (let r=0;r<nrows;r++){ const v=src[r]; if(v===v){ const yi=rowYear[r]-minYear; sums[yi]+=v; cnts[yi]++; } }
@@ -221,11 +292,8 @@ function loadElement(key){
   }
 
   // Transfer the heavy buffers to the main thread (zero-copy)
-  const transfers = [dayMs.buffer, years.buffer, rowYear.buffer];
-  const colBuffers = colData.map(a=>a.buffer);
-  const annualBuffers = annual.map(a=>a.buffer);
-  transfers.push(...colBuffers, ...annualBuffers);
-
+  const transfers = [dayMs.buffer, years.buffer, rowYear.buffer,
+                     ...colData.map(a=>a.buffer), ...annual.map(a=>a.buffer)];
   postMessage({
     type:"element", key, cols, nrows, nY,
     dayMs, years, rowYear,
@@ -246,23 +314,46 @@ onmessage = async (e)=>{
 </script>
 
 <script>
+// ===================== Disclaimer =====================
+// Shown on every page load; it can only be closed with "I understand".
+(function(){
+  const dlg = document.getElementById("disclaimer");
+  const ack = document.getElementById("ackBtn");
+  function open(){
+    if (typeof dlg.showModal === "function"){ if(!dlg.open) dlg.showModal(); }
+    else { dlg.setAttribute("open",""); }           // very old browsers
+    ack.focus();
+  }
+  dlg.addEventListener("cancel", e => e.preventDefault());   // block the Esc key
+  ack.addEventListener("click", () => {
+    if (typeof dlg.close === "function") dlg.close(); else dlg.removeAttribute("open");
+  });
+  document.getElementById("showDisclaimer").addEventListener("click", open);
+  open();
+})();
+
 // ===================== Main thread (UI) =====================
-const SSPS = ["ssp126","ssp245","ssp585"];
-const SSP_STYLE = {
+// Series groups. Columns are named "<model>_<ssp>" (e.g. "MIROC6_ssp245").
+// Columns ending in "_historical"/"_hist", or without an SSP suffix, form the historical group.
+const GROUPS = ["hist","ssp126","ssp245","ssp585"];
+const GROUP_STYLE = {
+  hist:  {line:"#3a3a3a",band:"#bdbdbd",label:"Historical"},
   ssp126:{line:"#2166ac",band:"#92c5de",label:"SSP1-2.6"},
   ssp245:{line:"#3b8b1f",band:"#b8e186",label:"SSP2-4.5"},
   ssp585:{line:"#c0392b",band:"#f4a582",label:"SSP5-8.5"},
 };
 
+// Unit conversion from the native unit of the file (million m³ per day)
+const UNITS = {
+  mcmd:{factor:1,                 axis:"Streamflow (million m³ day⁻¹)", short:"million m³ day⁻¹", csv:"Mm3_per_day"},
+  cms: {factor:1e6/86400,         axis:"Streamflow (m³ s⁻¹)",            short:"m³ s⁻¹",           csv:"m3_per_s"},
+  bcmy:{factor:365.25/1000,       axis:"Streamflow (km³ yr⁻¹)",          short:"km³ yr⁻¹ (BCM/yr)", csv:"km3_per_yr"},
+};
+
 // Map layers are served from this site so users only supply the local .h5.
-// Expected layout (folder lives INSIDE the Pages folder, next to index.html):
-//     docs/
-//       index.html
-//       shapefiles/
-//         nile_subbasins.shp / .dbf / .prj
-//         reaches.shp / .dbf / .prj
-// `bases` are candidate folders tried in order. Only .shp and .dbf are required;
-// the .prj is optional but recommended.
+//     docs/index.html
+//     docs/shapefiles/nile_subbasins.shp/.dbf/.prj
+//     docs/shapefiles/reaches.shp/.dbf/.prj
 const REPO_SHAPEFILES = {
   enabled: true,
   bases: ["shapefiles/"],
@@ -271,18 +362,26 @@ const REPO_SHAPEFILES = {
 };
 
 let worker=null, chart=null, h5KeyByNorm=new Map();
-let raw=null;             // last element payload from worker (daily+annual)
+let raw=null;             // last element payload from the worker (daily + annual)
 let selectedName=null, viewMode="ma";
 
 const statusEl=document.getElementById("status");
 function setStatus(msg,cls=""){ statusEl.textContent=msg; statusEl.className=cls; }
 const norm = s => String(s).trim().toLowerCase().replace(/[_\s]+/g,"-");
-function parseModelSsp(col){ const m=/_(ssp\d+)$/i.exec(col); return m?{model:col.slice(0,m.index),ssp:m[1].toLowerCase()}:{model:col,ssp:"unknown"}; }
+const naturalCompare = (a,b) => a.localeCompare(b, undefined, {numeric:true, sensitivity:"base"});
+
+function parseColumn(col){
+  let m=/^(.*)_(ssp\d{3})$/i.exec(col);
+  if(m) return {model:m[1], grp:m[2].toLowerCase()};
+  m=/^(.*)_(historical|hist)$/i.exec(col);
+  if(m) return {model:m[1], grp:"hist"};
+  return {model:col, grp:"hist"};
+}
 
 function quantile(a,q){ const n=a.length; if(!n)return NaN; if(n===1)return a[0];
   const p=(n-1)*q,lo=Math.floor(p),hi=Math.ceil(p); return lo===hi?a[lo]:a[lo]+(a[hi]-a[lo])*(p-lo); }
 
-// Centred moving average over an annual series, window W (odd or even), full-window only
+// Centred moving average over an annual series, window W; full windows only
 function rollingMean(a,W){
   const n=a.length,out=new Float64Array(n).fill(NaN);
   if(W<=1) return Float64Array.from(a);
@@ -296,44 +395,43 @@ function rollingMean(a,W){
   }
   return out;
 }
+function scaled(a,f){ if(f===1) return a; const o=new Float64Array(a.length); for(let i=0;i<a.length;i++) o[i]=a[i]*f; return o; }
+
+function currentWindow(){ return clampWindow(parseInt(document.getElementById("windowInput").value,10)||15); }
+function currentUnit(){ return UNITS[document.getElementById("unitSelect").value] || UNITS.mcmd; }
+function clampWindow(w){ return Math.max(1,Math.min(60,w)); }
 
 // ---- Build the plot series for the current view from `raw` ----
 function buildSeries(){
   if(!raw) return null;
-  const W = clampWindow(parseInt(document.getElementById("windowInput").value,10)||15);
+  const W = currentWindow(), f = currentUnit().factor;
 
   if(viewMode==="daily"){
-    // x = fractional year (numeric, no date adapter needed)
-    const n = raw.dayMs.length;
-    const x = new Float64Array(n);
+    // x = fractional year (numeric axis, no date adapter needed)
+    const n = raw.dayMs.length, x = new Float64Array(n);
     for(let i=0;i<n;i++){
-      const d=new Date(raw.dayMs[i]);
-      const y=d.getUTCFullYear();
+      const y=new Date(raw.dayMs[i]).getUTCFullYear();
       const start=Date.UTC(y,0,1), end=Date.UTC(y+1,0,1);
       x[i] = y + (raw.dayMs[i]-start)/(end-start);
     }
-    const projections = raw.cols.map((name,c)=>{
-      const {model,ssp}=parseModelSsp(name);
-      return {name,model,ssp,y:raw.daily[c]};
-    });
-    return { xType:"num", x, projections, ssps:computeSSPStatsGeneric(projections, n) };
+    const projections = raw.cols.map((name,c)=>({name, ...parseColumn(name), y:scaled(raw.daily[c],f)}));
+    return { xType:"num", x, projections, groups:groupStats(projections, n) };
   }
 
-  // annual or ma → x = years
   const years = Array.from(raw.years);
   const projections = raw.cols.map((name,c)=>{
-    const {model,ssp}=parseModelSsp(name);
     const base = raw.annual[c];
     const y = viewMode==="ma" ? rollingMean(base,W) : base;
-    return {name,model,ssp,y};
+    return {name, ...parseColumn(name), y:scaled(y,f)};
   });
-  return { xType:"year", x:years, projections, ssps:computeSSPStatsGeneric(projections, years.length) };
+  return { xType:"year", x:years, projections, groups:groupStats(projections, years.length) };
 }
 
-function computeSSPStatsGeneric(projections,len){
+// Ensemble statistics per group. n = number of distinct models with any valid data.
+function groupStats(projections,len){
   const out={};
-  for(const ssp of SSPS){
-    const members=projections.filter(p=>p.ssp===ssp);
+  for(const g of GROUPS){
+    const members=projections.filter(p=>p.grp===g && p.y.some(Number.isFinite));
     if(!members.length) continue;
     const median=new Float64Array(len).fill(NaN),p10=new Float64Array(len).fill(NaN),p90=new Float64Array(len).fill(NaN);
     for(let i=0;i<len;i++){
@@ -341,78 +439,105 @@ function computeSSPStatsGeneric(projections,len){
       for(const m of members){ const v=m.y[i]; if(Number.isFinite(v)) vals.push(v); }
       if(vals.length){ vals.sort((a,b)=>a-b); median[i]=quantile(vals,.5); p10[i]=quantile(vals,.1); p90[i]=quantile(vals,.9); }
     }
-    out[ssp]={members:members.map(m=>m.name),median,p10,p90};
+    const models=[...new Set(members.map(m=>m.model))].sort(naturalCompare);
+    out[g]={members:members.map(m=>m.name), models, n:models.length, median, p10, p90};
   }
   return out;
 }
 
-function clampWindow(w){ return Math.max(1,Math.min(60,w)); }
-
 // ---- Chart ----
 function hexA(hex,a){ const h=hex.replace("#","");
   return `rgba(${parseInt(h.slice(0,2),16)},${parseInt(h.slice(2,4),16)},${parseInt(h.slice(4,6),16)},${a})`; }
+const nLabel = n => `n = ${n} model${n===1?"":"s"}`;
+
+function updateEnsembleInfo(S){
+  const box=document.getElementById("ensembleInfo");
+  document.querySelectorAll(".n-tag").forEach(el=>{
+    const g=S && S.groups[el.dataset.n];
+    el.textContent = g && !(el.dataset.n==="hist" && g.n<2) ? `(n = ${g.n})` : "";
+    el.title = g ? g.models.join(", ") : "";
+  });
+  if(!S){ box.textContent=""; return; }
+  const parts=GROUPS.filter(g=>S.groups[g] && !(g==="hist" && S.groups[g].n<2)).map(g=>`<b>${GROUP_STYLE[g].label}</b>: ${nLabel(S.groups[g].n)}`);
+  box.innerHTML = parts.length ? `Ensemble size: ${parts.join(" · ")}` : "";
+  const small = GROUPS.some(g=>g!=="hist" && S.groups[g] && S.groups[g].n<10);
+  if(small) box.innerHTML += ` <span class="hint">(with fewer than 10 models, the 10th–90th percentile band is interpolated between a handful of members)</span>`;
+}
 
 function renderChart(){
   const S=buildSeries();
+  updateEnsembleInfo(S);
   if(!S) return;
-  const activeSsps=SSPS.filter(s=>document.querySelector(`.sspToggle[data-ssp="${s}"]`).checked && S.ssps[s]);
+  const unit=currentUnit();
+  const active=GROUPS.filter(g=>document.querySelector(`.grpToggle[data-grp="${g}"]`).checked && S.groups[g]);
   const showIndiv=document.getElementById("showIndiv").checked;
   const showBand=document.getElementById("showBand").checked && viewMode!=="daily";
-  const isNum = S.xType==="num";        // daily → numeric fractional-year x
+  const isNum = S.xType==="num";       // daily -> numeric fractional-year x
   const labels = isNum ? undefined : S.x;
 
   const datasets=[];
-  const mk=(y)=> isNum ? Array.from(y,(v,i)=>({x:S.x[i],y:Number.isFinite(v)?v:null})) : Array.from(y);
+  const mk=(y)=> isNum ? Array.from(y,(v,i)=>({x:S.x[i],y:Number.isFinite(v)?v:null})) : Array.from(y,v=>Number.isFinite(v)?v:null);
 
   if(showIndiv){
     for(const p of S.projections){
-      if(!activeSsps.includes(p.ssp)) continue;
-      datasets.push({label:p.name,data:mk(p.y),borderColor:SSP_STYLE[p.ssp]?.line||"#888",
+      if(!active.includes(p.grp)) continue;
+      datasets.push({label:p.name,data:mk(p.y),borderColor:hexA(GROUP_STYLE[p.grp].line,.55),
         borderWidth:.6,pointRadius:0,tension:.1,spanGaps:false,order:5,_indiv:true});
     }
   }
   if(showBand){
-    for(const ssp of activeSsps){
-      const st=SSP_STYLE[ssp],s=S.ssps[ssp];
+    for(const g of active){
+      const st=GROUP_STYLE[g],s=S.groups[g];
+      if(s.n<2) continue;                                   // no band for a single series
       datasets.push({label:`${st.label} p10`,data:mk(s.p10),borderColor:"rgba(0,0,0,0)",borderWidth:0,pointRadius:0,order:4,_hideLegend:true});
       datasets.push({label:`${st.label} 10–90%`,data:mk(s.p90),borderColor:"rgba(0,0,0,0)",borderWidth:0,pointRadius:0,backgroundColor:hexA(st.band,.45),fill:"-1",order:4,_hideLegend:true});
     }
   }
-  for(const ssp of activeSsps){
-    const st=SSP_STYLE[ssp],s=S.ssps[ssp];
-    datasets.push({label:`${st.label} median`,data:mk(s.median),borderColor:st.line,borderWidth:2.4,pointRadius:0,tension:.1,spanGaps:false,order:1});
+  for(const g of active){
+    const st=GROUP_STYLE[g],s=S.groups[g];
+    const lbl = s.n>1 ? `${st.label} median (${nLabel(s.n)})`
+              : g==="hist" ? st.label
+              : `${st.label} (${nLabel(s.n)})`;
+    datasets.push({label:lbl,data:mk(s.median),borderColor:st.line,borderWidth:2.4,pointRadius:0,tension:.1,spanGaps:false,order:1});
   }
 
   const cfg={type:"line",data:{labels,datasets},options:{
     responsive:true,maintainAspectRatio:false,animation:false,
-    parsing:true,
+    parsing: isNum ? false : true,
+    normalized: isNum,
     interaction:{mode:"nearest",intersect:false},
     scales:{
       x: isNum
         ? {type:"linear",title:{display:true,text:"Year"},ticks:{maxTicksLimit:12,callback:v=>Math.round(v)}}
         : {title:{display:true,text:"Year"},ticks:{maxTicksLimit:12}},
-      y:{title:{display:true,text:"Streamflow (million m³ day⁻¹)"}},
+      y:{title:{display:true,text:unit.axis}},
     },
     plugins:{
+      decimation: isNum ? {enabled:true, algorithm:"min-max"} : {enabled:false},
       legend:{labels:{filter:it=>{const ds=cfg.data.datasets[it.datasetIndex];return !(ds&&(ds._hideLegend||ds._indiv));},boxWidth:18,font:{size:11}}},
-      tooltip:{callbacks:{title:items=>{ if(!items.length) return "";
-        const xv = isNum ? items[0].parsed.x : items[0].label;
-        return isNum ? `Year ${Math.floor(xv)}` : `Year ${xv}`; }}},
+      tooltip:{callbacks:{
+        title:items=>{ if(!items.length) return "";
+          const xv = isNum ? items[0].parsed.x : items[0].label;
+          return isNum ? `Year ${Math.floor(xv)}` : `Year ${xv}`; },
+        label:it=>`${it.dataset.label}: ${Number(it.parsed.y).toLocaleString(undefined,{maximumSignificantDigits:4})}`,
+      }},
     },
   }};
   if(chart) chart.destroy();
   chart=new Chart(document.getElementById("chart"),cfg);
 }
 
-// ---- View + window controls ----
+// ---- View, window and unit controls ----
 function updateViewHint(){
-  const W=clampWindow(parseInt(document.getElementById("windowInput").value,10)||15);
+  const W=currentWindow();
   const hint=document.getElementById("viewHint");
   document.getElementById("windowCtrl").style.display = viewMode==="ma"?"":"none";
   document.getElementById("showBand").parentElement.style.display = viewMode==="daily"?"none":"";
-  if(viewMode==="ma") hint.textContent=`${W}-year centred moving average`;
-  else if(viewMode==="annual") hint.textContent="annual mean (no smoothing)";
-  else hint.textContent="daily raw values (no smoothing)";
+  if(viewMode==="ma") hint.textContent=`${W}-year centred moving average of calendar-year means`;
+  else if(viewMode==="annual") hint.textContent="calendar-year mean (no smoothing)";
+  else hint.textContent="daily values (no smoothing)";
+  document.getElementById("foot").textContent =
+    `Units: ${currentUnit().short}. n = number of climate models (GCMs) in each ensemble; the band spans the 10th–90th percentile across models.`;
 }
 
 document.getElementById("viewSeg").addEventListener("click",e=>{
@@ -425,6 +550,7 @@ let winTimer=null;
 document.getElementById("windowInput").addEventListener("input",()=>{
   clearTimeout(winTimer); winTimer=setTimeout(()=>{ updateViewHint(); renderChart(); },200);
 });
+document.getElementById("unitSelect").addEventListener("change",()=>{ updateViewHint(); renderChart(); });
 
 // ---- Worker plumbing ----
 function initWorker(){
@@ -436,9 +562,7 @@ function initWorker(){
     if(m.type==="opened"){
       h5KeyByNorm.clear();
       for(const k of m.keys) h5KeyByNorm.set(norm(k),k);
-      const t=m.timing;
-      console.log(`[timing] ready ${t.ready.toFixed(0)}ms | open ${t.open.toFixed(0)}ms | keys ${t.keys.toFixed(0)}ms`);
-      setStatus(`HDF5 ready: ${m.keys.length} elements (${m.mode}). Click the map or pick an element.`,"ok");
+      setStatus(`Flow file ready: ${m.keys.length} elements. Click the map or pick an element.`,"ok");
       populateSelect(m.keys); refreshMapSelectability();
     } else if(m.type==="element"){
       raw=m; selectedName=m.key;
@@ -464,92 +588,77 @@ function selectByName(displayName){
 
 function populateSelect(keys){
   const sel=document.getElementById("elemSelect"); sel.innerHTML="";
-  [...keys].sort((a,b)=>a.localeCompare(b)).forEach(k=>{
-    const o=document.createElement("option"); o.value=k; o.textContent=k; sel.appendChild(o);
-  });
+  const ph=document.createElement("option"); ph.value=""; ph.textContent="Select an element…"; sel.appendChild(ph);
+  const buckets={ "Sub-basins":[], "Reaches":[], "Other elements":[] };
+  for(const k of keys){
+    if(/^sub-?basin/i.test(k)) buckets["Sub-basins"].push(k);
+    else if(/^(reach|r[_-])/i.test(k)) buckets["Reaches"].push(k);
+    else buckets["Other elements"].push(k);
+  }
+  for(const [label,list] of Object.entries(buckets)){
+    if(!list.length) continue;
+    const og=document.createElement("optgroup"); og.label=label;
+    list.sort(naturalCompare).forEach(k=>{ const o=document.createElement("option"); o.value=k; o.textContent=k; og.appendChild(o); });
+    sel.appendChild(og);
+  }
   sel.disabled=false; sel.value="";
 }
 
-// ---- Map (SVG) ----
+// ---- Shapefile loading ----
 let basinGeo=null, reachGeo=null;
-let _loggedProps=false;
 function featName(props){
   if(!props) return "";
-  if(!_loggedProps){ console.log("[shapefile] attribute keys:",Object.keys(props),"example:",props); _loggedProps=true; }
-  // 1) exact-ish "name" match (case-insensitive, ignore surrounding spaces)
   for(const k of Object.keys(props)){
     if(k.trim().toLowerCase()==="name"){ const v=props[k]; if(v!=null && String(v).trim()!=="") return String(v).trim(); }
   }
-  // 2) any key containing "name"
   for(const k of Object.keys(props)){
     if(k.toLowerCase().includes("name")){ const v=props[k]; if(v!=null && String(v).trim()!=="") return String(v).trim(); }
   }
-  // 3) fall back to the first non-empty string-ish value
   for(const k of Object.keys(props)){
     const v=props[k]; if(v!=null && typeof v!=="object" && String(v).trim()!=="") return String(v).trim();
   }
-  return ""; }
-function eachRing(geom,cb){ if(!geom)return; const t=geom.type,c=geom.coordinates;
-  if(t==="Polygon")c.forEach(r=>cb(r)); else if(t==="MultiPolygon")c.forEach(p=>p.forEach(r=>cb(r)));
-  else if(t==="LineString")cb(c); else if(t==="MultiLineString")c.forEach(l=>cb(l)); }
+  return "";
+}
 
-// Minimal dBASE III/IV reader — parses the .dbf attribute table directly,
-// independent of shpjs (whose parseDbf can fail silently in some builds).
+// Minimal dBASE III/IV reader for the .dbf attribute table.
 function parseDbfLocal(buf){
   const dv = new DataView(buf);
   const dec = new TextDecoder("latin1");
   const nRecords   = dv.getUint32(4, true);
   const headerSize = dv.getUint16(8, true);
   const recordSize = dv.getUint16(10, true);
-
   const fields = [];
-  let p = 32;                                  // field descriptors start at byte 32
+  let p = 32;
   while (p < headerSize) {
-    if (dv.getUint8(p) === 0x0D) break;         // 0x0D terminates the field list
-    const nameBytes = new Uint8Array(buf, p, 11);
-    const name = dec.decode(nameBytes).replace(/\u0000[\s\S]*$/, "").trim();
-    const len  = dv.getUint8(p + 16);
-    fields.push({ name, len });
+    if (dv.getUint8(p) === 0x0D) break;
+    const name = dec.decode(new Uint8Array(buf, p, 11)).replace(/\u0000[\s\S]*$/, "").trim();
+    fields.push({ name, len: dv.getUint8(p + 16) });
     p += 32;
   }
-
   const records = [];
   let rp = headerSize;
   for (let r = 0; r < nRecords; r++) {
-    let off = rp + 1;                           // first byte = deletion flag
+    let off = rp + 1;                      // first byte = deletion flag
     const rec = {};
-    for (const f of fields) {
-      const bytes = new Uint8Array(buf, off, f.len);
-      rec[f.name] = dec.decode(bytes).trim();
-      off += f.len;
-    }
-    records.push(rec);                          // keep ALL rows → 1:1 with geometry order
+    for (const f of fields) { rec[f.name] = dec.decode(new Uint8Array(buf, off, f.len)).trim(); off += f.len; }
+    records.push(rec);                     // keep all rows, 1:1 with geometry order
     rp += recordSize;
   }
   return records;
 }
 
-// Core: build a FeatureCollection from raw shp/dbf buffers (+ optional prj text).
-// Shared by the local-file loader and the repository (fetch) loader.
-function buildLayer(shpBuf, dbfBuf, prjText, layerLabel){
-  const geoms = window.shp.parseShp(shpBuf, prjText);   // array of geometries
+function buildLayer(shpBuf, dbfBuf, prjText){
+  const geoms = window.shp.parseShp(shpBuf, prjText);   // reprojected to WGS84 when a .prj is given
   let records = [];
-  if(dbfBuf){
-    try { records = parseDbfLocal(dbfBuf); }
-    catch(e){ console.warn("[shapefile] DBF parse failed:", e); }
-  }
+  if(dbfBuf){ try { records = parseDbfLocal(dbfBuf); } catch(e){ console.warn("[shapefile] DBF parse failed:", e); } }
   const features = geoms.map((g,i)=>({
     type:"Feature",
     geometry: g && g.type ? g : (g && g.geometry ? g.geometry : g),
     properties: records[i] || {},
   }));
-  const sampleKeys = features.length ? Object.keys(features[0].properties) : [];
-  let named=0; for(const f of features) if(featName(f.properties)) named++;
-  console.log(`[shapefile] ${layerLabel}: ${features.length} features; fields = [${sampleKeys.join(", ")}]; ${named} named.`);
-  return { fc:{type:"FeatureCollection", features}, sampleKeys, named };
+  return { type:"FeatureCollection", features };
 }
 
-// Repository files fetched over HTTP (relative to index.html).
 async function fetchBuffer(url){
   const res = await fetch(url);
   if(!res.ok) throw new Error(`${url} → HTTP ${res.status}`);
@@ -559,12 +668,12 @@ async function fetchTextOptional(url){
   try{ const res = await fetch(url); return res.ok ? await res.text() : undefined; }
   catch(e){ return undefined; }
 }
-// A real .shp starts with the big-endian file code 9994 (0x0000270A).
+// A real .shp starts with the big-endian file code 9994.
 function looksLikeShp(buf){
   if(!buf || buf.byteLength < 100) return false;
   try{ return new DataView(buf).getInt32(0, false) === 9994; }catch(e){ return false; }
 }
-// GitHub Pages serves LFS-tracked files as small text "pointer" files, not the binary.
+// GitHub Pages serves Git LFS files as small text pointers, not the binary.
 function looksLikeLfsPointer(buf){
   if(!buf || buf.byteLength > 1024) return false;
   try{ return new TextDecoder("latin1").decode(new Uint8Array(buf.slice(0,64))).startsWith("version https://git-lfs"); }
@@ -580,21 +689,17 @@ async function loadLayerFromUrls(spec, layerLabel){
       const shpUrl = base + spec.shp;
       const shpBuf = await fetchBuffer(shpUrl);
       if(looksLikeLfsPointer(shpBuf))
-        throw new Error(`${shpUrl} is a Git LFS pointer, not the real .shp. GitHub Pages does not serve LFS content — re-commit the shapefiles WITHOUT Git LFS (or host them elsewhere).`);
+        throw new Error(`${shpUrl} is a Git LFS pointer. GitHub Pages does not serve LFS content; commit the shapefiles without Git LFS.`);
       if(!looksLikeShp(shpBuf))
-        throw new Error(`${shpUrl} does not look like a .shp file (magic number missing). It may be a 404 page or a wrong path/filename (check exact spelling and case).`);
+        throw new Error(`${shpUrl} does not look like a .shp file (wrong path or filename?).`);
       const dbfBuf  = await fetchBuffer(base + spec.dbf);
       const prjText = spec.prj ? await fetchTextOptional(base + spec.prj) : undefined;
-      const { fc, named } = buildLayer(shpBuf, dbfBuf, prjText, layerLabel);
-      console.log(`[auto] ${layerLabel} loaded from "${base}" (${fc.features.length} features).`);
-      return { fc, named, base };
+      return buildLayer(shpBuf, dbfBuf, prjText);
     }catch(e){ tried.push(base + spec.shp); lastErr = e; }
   }
-  console.error(`[auto] ${layerLabel} failed. Tried: ${tried.join(", ")}`);
   throw new Error(`${layerLabel}: ${lastErr && lastErr.message ? lastErr.message : "could not be fetched from [" + tried.join(", ") + "]"}`);
 }
 
-// Pull both map layers from the repo so users only supply the local .h5.
 async function autoLoadShapefiles(){
   if(!REPO_SHAPEFILES.enabled) return { anyLoaded:false, msgs:["disabled"], errors:[] };
   const msgs=[], errors=[]; let anyLoaded=false;
@@ -602,30 +707,32 @@ async function autoLoadShapefiles(){
     loadLayerFromUrls(REPO_SHAPEFILES.basin, "Sub-basins"),
     loadLayerFromUrls(REPO_SHAPEFILES.reach, "Reaches"),
   ]);
-  if(basinRes.status==="fulfilled"){ basinGeo=basinRes.value.fc; anyLoaded=true; msgs.push(`sub-basins ${basinGeo.features.length}`); }
-  else { console.warn("[auto] sub-basins failed:", basinRes.reason); msgs.push("sub-basins failed"); errors.push(String(basinRes.reason && basinRes.reason.message || basinRes.reason)); }
-  if(reachRes.status==="fulfilled"){ reachGeo=reachRes.value.fc; anyLoaded=true; msgs.push(`reaches ${reachGeo.features.length}`); }
-  else { console.warn("[auto] reaches failed:", reachRes.reason); msgs.push("reaches failed"); errors.push(String(reachRes.reason && reachRes.reason.message || reachRes.reason)); }
+  if(basinRes.status==="fulfilled"){ basinGeo=basinRes.value; anyLoaded=true; msgs.push(`${basinGeo.features.length} sub-basins`); }
+  else { msgs.push("sub-basins failed"); errors.push(String(basinRes.reason && basinRes.reason.message || basinRes.reason)); }
+  if(reachRes.status==="fulfilled"){ reachGeo=reachRes.value; anyLoaded=true; msgs.push(`${reachGeo.features.length} reaches`); }
+  else { msgs.push("reaches failed"); errors.push(String(reachRes.reason && reachRes.reason.message || reachRes.reason)); }
   return { anyLoaded, msgs, errors };
 }
 
 // ---- Map (Leaflet) ----
-// Keyless tile basemaps. Users switch between them with the layer control (top-right).
+// Keyless tile basemaps; switch with the layer control (top right).
+// (CARTO raster basemaps now require an API key, so they are no longer used.)
+const ESRI = "https://server.arcgisonline.com/ArcGIS/rest/services";
 const BASEMAPS = {
-  "Light gray":    { url:"https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
-                     opts:{ subdomains:"abcd", maxZoom:20, opacity:0.25, attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>' } },
-  "Light color":   { url:"https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png",
-                     opts:{ subdomains:"abcd", maxZoom:20, opacity:0.25, attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>' } },
-  "Streets (OSM)": { url:"https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
-                     opts:{ maxZoom:19, opacity:0.25, attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors' } },
+  "Light gray":    { url:`${ESRI}/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}`,
+                     opts:{ maxZoom:16, opacity:0.6, attribution:'Tiles &copy; Esri &mdash; Esri, DeLorme, NAVTEQ' } },
+  "Light color":   { url:`${ESRI}/World_Street_Map/MapServer/tile/{z}/{y}/{x}`,
+                     opts:{ maxZoom:19, opacity:0.35, attribution:'Tiles &copy; Esri &mdash; Source: Esri, DeLorme, NAVTEQ, USGS, Intermap, iPC, NRCAN, Esri Japan, METI, Esri China (Hong Kong), Esri (Thailand), TomTom, 2012' } },
+  "Streets (OSM)": { url:"https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+                     opts:{ maxZoom:19, opacity:0.3, attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors' } },
   "Terrain":       { url:"https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png",
-                     opts:{ maxZoom:17, opacity:0.25, subdomains:"abc", attribution:'&copy; <a href="https://opentopomap.org">OpenTopoMap</a> (CC-BY-SA), &copy; OpenStreetMap contributors' } },
-  "Satellite":     { url:"https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
-                     opts:{ maxZoom:19, opacity:0.25, attribution:'Imagery &copy; Esri, Maxar, Earthstar Geographics' } },
+                     opts:{ maxZoom:17, opacity:0.3, subdomains:"abc", attribution:'Map data: &copy; OpenStreetMap contributors, SRTM | Style: &copy; <a href="https://opentopomap.org">OpenTopoMap</a> (CC-BY-SA)' } },
+  "Satellite":     { url:`${ESRI}/World_Imagery/MapServer/tile/{z}/{y}/{x}`,
+                     opts:{ maxZoom:19, opacity:0.5, attribution:'Imagery &copy; Esri, Maxar, Earthstar Geographics' } },
 };
 const DEFAULT_BASEMAP = "Light gray";
 
-// Feature styles. Basins are translucent so the basemap shows through for context.
+// Feature styles. Basins are translucent so the basemap shows through.
 const STYLE = {
   basin:       { color:"#3f6b3f", weight:0.8, fillColor:"#8ec48e", fillOpacity:0.35 },
   basinSel:    { color:"#1f3d1f", weight:2,   fillColor:"#4f9e4f", fillOpacity:0.6  },
@@ -639,22 +746,22 @@ let lmap=null, basinLayer=null, reachLayer=null, dataLatLngBounds=null;
 
 function initMap(){
   lmap = L.map("map", { zoomControl:true, worldCopyJump:true, minZoom:2 });
-  lmap.setView([10, 31], 4);   // approx Nile Basin centre until data loads
+  lmap.setView([10, 31], 4);   // approximate Nile Basin centre until the layers load
 
-  const layers={}; let added=false;
+  const layers={};
   for(const [name,def] of Object.entries(BASEMAPS)){
-    const tl=L.tileLayer(def.url, def.opts); layers[name]=tl;
-    if(name===DEFAULT_BASEMAP){ tl.addTo(lmap); added=true; }
+    layers[name]=L.tileLayer(def.url, def.opts);
   }
-  if(!added){ const k=Object.keys(BASEMAPS)[0]; layers[k].addTo(lmap); }
+  (layers[DEFAULT_BASEMAP] || Object.values(layers)[0]).addTo(lmap);
   L.control.layers(layers, null, { position:"topright", collapsed:true }).addTo(lmap);
+  L.control.scale({ imperial:false }).addTo(lmap);
 
   // "Fit to basin" button below the zoom control
   const fit=L.control({position:"topleft"});
   fit.onAdd=function(){
     const div=L.DomUtil.create("div","leaflet-bar");
     const a=L.DomUtil.create("a","",div);
-    a.href="#"; a.title="Fit to basin"; a.textContent="⤢";
+    a.href="#"; a.title="Fit to basin"; a.setAttribute("aria-label","Fit to basin"); a.textContent="⤢";
     a.style.fontSize="16px"; a.style.textAlign="center"; a.style.fontWeight="700";
     L.DomEvent.on(a,"click",L.DomEvent.stop).on(a,"click",()=>{ if(dataLatLngBounds) lmap.fitBounds(dataLatLngBounds,{padding:[14,14]}); });
     return div;
@@ -675,20 +782,22 @@ function wireFeature(feature, layer, kind){
   layer._elemName=name; layer._kind=kind;
   layer.setStyle(styleFor(kind,name));
   if(name){
-    const noData = h5KeyByNorm.size>0 && !h5KeyByNorm.has(norm(name));
-    layer.bindTooltip(name+(noData?"  (no data)":""), {sticky:true, className:"elem-tip", direction:"top", opacity:0.95});
+    layer.bindTooltip(()=>name+(h5KeyByNorm.size>0 && !h5KeyByNorm.has(norm(name))?"  (no data)":""),
+      {sticky:true, className:"elem-tip", direction:"top", opacity:0.95});
   }
   layer.on("mouseover", ()=>{ if(norm(name||"")!==norm(selectedName||"")) layer.setStyle(kind==="basin"?{fillColor:"#c3d8c3",fillOpacity:0.55}:{color:"#d6604d"}); });
   layer.on("mouseout",  ()=>{ if(norm(name||"")!==norm(selectedName||"")) layer.setStyle(styleFor(kind,name)); });
-  layer.on("click", ()=>{ if(name) selectByName(name);
-    else setStatus("This feature has no readable name attribute — check the .dbf field names in the console log.","err"); });
+  layer.on("click", ()=>{
+    if(!name){ setStatus("This feature has no name attribute in the .dbf file.","err"); return; }
+    if(h5KeyByNorm.size===0){ setStatus(`Selected "${name}". Load the .h5 flow file to see its streamflow.`); selectedName=name; highlightMap(name); return; }
+    selectByName(name);
+  });
 }
 
 function drawMap(){
   if(!lmap) return;
   if(basinLayer){ lmap.removeLayer(basinLayer); basinLayer=null; }
   if(reachLayer){ lmap.removeLayer(reachLayer); reachLayer=null; }
-
   if(basinGeo){
     basinLayer=L.geoJSON(basinGeo, { filter:f=>f&&f.geometry, style:()=>STYLE.basin,
       onEachFeature:(f,l)=>wireFeature(f,l,"basin") }).addTo(lmap);
@@ -697,12 +806,10 @@ function drawMap(){
     reachLayer=L.geoJSON(reachGeo, { filter:f=>f&&f.geometry, style:()=>STYLE.reach,
       onEachFeature:(f,l)=>wireFeature(f,l,"reach") }).addTo(lmap);
   }
-
   const b=L.latLngBounds([]);
   if(basinLayer && basinLayer.getLayers().length) b.extend(basinLayer.getBounds());
   if(reachLayer && reachLayer.getLayers().length) b.extend(reachLayer.getBounds());
   if(b.isValid()){ dataLatLngBounds=b; lmap.fitBounds(b,{padding:[14,14]}); }
-
   refreshMapSelectability();
   if(selectedName) highlightMap(selectedName);
 }
@@ -723,40 +830,39 @@ function refreshMapSelectability(){
   eachElemLayer((l,kind)=>{ if(norm(l._elemName||"")!==norm(selectedName||"")) l.setStyle(styleFor(kind,l._elemName)); });
 }
 
-// ---- CSV export (respects current view + window) ----
+// ---- CSV export (follows the current view, window and units) ----
 function exportCSV(){
   if(!raw) return;
-  const S=buildSeries();
+  const S=buildSeries(), unit=currentUnit();
   const isDaily=viewMode==="daily";
-  const xHeader = isDaily ? "Date" : "Year";
-  const suffix = viewMode==="ma" ? `_MA${clampWindow(parseInt(document.getElementById("windowInput").value,10)||15)}` :
-                 viewMode==="annual" ? "_annual" : "_daily";
-  const cols=[xHeader];
-  for(const p of S.projections) cols.push(p.name+suffix);
-  if(!isDaily) for(const ssp of SSPS) if(S.ssps[ssp]){ const L=SSP_STYLE[ssp].label; cols.push(`${L}_median`,`${L}_p10`,`${L}_p90`); }
+  const suffix = viewMode==="ma" ? `_MA${currentWindow()}` : viewMode==="annual" ? "_annual" : "_daily";
+  const cols=[isDaily ? "Date" : "Year"];
+  for(const p of S.projections) cols.push(`${p.name}${suffix}_${unit.csv}`);
+  const grpCols = isDaily ? [] : GROUPS.filter(g=>S.groups[g] && S.groups[g].n>1);
+  for(const g of grpCols){ const L=GROUP_STYLE[g].label.replace(/\s+/g,"_"); const n=S.groups[g].n;
+    cols.push(`${L}_median_n${n}_${unit.csv}`,`${L}_p10_n${n}_${unit.csv}`,`${L}_p90_n${n}_${unit.csv}`); }
   const lines=[cols.join(",")];
-  const N = S.x.length;
-  for(let i=0;i<N;i++){
-    const xcell = isDaily ? new Date(raw.dayMs[i]).toISOString().slice(0,10) : S.x[i];
-    const row=[ xcell ];
+  for(let i=0;i<S.x.length;i++){
+    const row=[ isDaily ? new Date(raw.dayMs[i]).toISOString().slice(0,10) : S.x[i] ];
     for(const p of S.projections) row.push(fmt(p.y[i]));
-    if(!isDaily) for(const ssp of SSPS) if(S.ssps[ssp]){ const s=S.ssps[ssp]; row.push(fmt(s.median[i]),fmt(s.p10[i]),fmt(s.p90[i])); }
+    for(const g of grpCols){ const s=S.groups[g]; row.push(fmt(s.median[i]),fmt(s.p10[i]),fmt(s.p90[i])); }
     lines.push(row.join(","));
   }
   const blob=new Blob([lines.join("\n")],{type:"text/csv"});
   const a=document.createElement("a"); a.href=URL.createObjectURL(blob);
-  a.download=`${raw.key}${suffix}.csv`; a.click(); URL.revokeObjectURL(a.href);
+  a.download=`${raw.key}${suffix}_${unit.csv}.csv`; a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href),1000);
 }
-function fmt(v){ return Number.isFinite(v)?(+v).toFixed(4):""; }
+function fmt(v){ return Number.isFinite(v)?(+v).toPrecision(6).replace(/\.?0+$/,""):""; }
 
 // ---- Wire up ----
 document.getElementById("h5file").addEventListener("change",e=>{
-  if(e.target.files[0]){ setStatus("Opening HDF5 in background…"); worker.postMessage({type:"open",file:e.target.files[0]}); }
+  if(e.target.files[0]){ setStatus("Opening the flow file…"); worker.postMessage({type:"open",file:e.target.files[0]}); }
 });
 document.getElementById("elemSelect").addEventListener("change",e=>{
-  if(e.target.value){ selectedName=e.target.value; highlightMap(e.target.value); selectByName(e.target.value); }
+  if(e.target.value) selectByName(e.target.value);
 });
-document.querySelectorAll(".sspToggle").forEach(c=>c.addEventListener("change",renderChart));
+document.querySelectorAll(".grpToggle").forEach(c=>c.addEventListener("change",renderChart));
 document.getElementById("showIndiv").addEventListener("change",renderChart);
 document.getElementById("showBand").addEventListener("change",renderChart);
 document.getElementById("exportBtn").addEventListener("click",exportCSV);
@@ -765,14 +871,14 @@ initWorker();
 initMap();
 updateViewHint();
 (async ()=>{
-  setStatus("Loading map layers from this site…");
+  setStatus("Loading map layers…");
   const r = await autoLoadShapefiles();
   if(r && r.anyLoaded){
     drawMap();
-    setStatus(`Map layers loaded (${r.msgs.join(", ")}). Now choose your local .h5 flow file to begin.`,"ok");
+    setStatus(`Map loaded (${r.msgs.join(", ")}). Now choose the .h5 flow file to begin.`,"ok");
   } else {
     const detail = (r && r.errors && r.errors.length) ? "  Details: " + r.errors.join("  |  ") : "";
-    setStatus("Could not load the map layers from this site." + detail + "  (Open the browser console for the exact URLs tried.)","err");
+    setStatus("Could not load the map layers." + detail,"err");
   }
 })();
 </script>
