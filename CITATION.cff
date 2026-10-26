@@ -1,0 +1,29 @@
+cff-version: 1.2.0
+message: >-
+  If you use NileFlowExplorer or the data it displays, please cite this
+  repository and the dataset on Zenodo. A paper describing the methods is in
+  preparation.
+title: "NileFlowExplorer: simulated naturalized streamflow for the Nile Basin"
+type: software
+authors:
+  - given-names: Mohammed
+    family-names: Basheer
+  - name: WRH Group
+repository-code: "https://github.com/WRHGroup/NileFlowExplorer"
+url: "https://wrhgroup.github.io/NileFlowExplorer/"
+license: GPL-3.0
+keywords:
+  - Nile Basin
+  - streamflow
+  - HEC-HMS
+  - climate change
+  - CMIP6
+  - CHIRPS
+  - hydrology
+references:
+  - type: data
+    title: "Nile Basin naturalized streamflow (HDF5)"
+    authors:
+      - name: WRH Group
+    doi: 10.5281/zenodo.23491530
+    url: "https://doi.org/10.5281/zenodo.23491530"
